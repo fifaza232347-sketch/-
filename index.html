@@ -1,0 +1,932 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>เกมล่องเรือนิราศภูเขาทอง</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #f4dbb1; 
+            color: #333;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            overflow: hidden;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        /* --- หน้าจอเริ่มเกม --- */
+        #start-screen {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background-color: #f4dbb1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
+        }
+
+        .form-box {
+            background: #fff;
+            padding: 35px;
+            border-radius: 15px;
+            text-align: center;
+            width: 90%;
+            max-width: 450px;
+            border: 5px solid #8b5a2b;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        }
+
+        .form-box h1 {
+            margin-top: 0;
+            color: #8b5a2b;
+            font-size: 28px;
+            margin-bottom: 25px;
+        }
+
+        .form-group {
+            margin-bottom: 18px;
+            text-align: left;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 6px;
+            font-size: 16px;
+            color: #5c2e0b;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 10px 12px;
+            font-size: 16px;
+            border: 2px solid #d2691e;
+            border-radius: 8px;
+            box-sizing: border-box;
+            font-family: inherit;
+            outline: none;
+        }
+
+        .form-group input:focus {
+            border-color: #8b4513;
+            background-color: #fffaf0;
+        }
+
+        .start-btn {
+            background: #27ae60;
+            color: white;
+            border: none;
+            padding: 14px 30px;
+            font-size: 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+            font-weight: bold;
+            margin-top: 10px;
+            box-shadow: 0 4px 0 #1e824c;
+            font-family: inherit;
+        }
+
+        .start-btn:hover { background: #219653; }
+        .start-btn:active { transform: translateY(4px); box-shadow: none; }
+
+        /* --- ส่วนแสดงผลเกม --- */
+        #game-ui {
+            width: 900px;
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-size: 24px;
+            font-weight: bold;
+            background: #fff;
+            padding: 10px 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            box-sizing: border-box;
+            border: 3px solid #8b5a2b;
+            max-width: 95vw;
+        }
+
+        #game-board {
+            width: 900px;
+            height: 450px;
+            background: linear-gradient(to bottom, #7ec0ee 0%, #ececec 40%); 
+            position: relative;
+            overflow: hidden;
+            border: 5px solid #8b5a2b;
+            border-radius: 10px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+            max-width: 95vw;
+        }
+
+        /* พระอาทิตย์เรืองแสง */
+        .sun {
+            position: absolute;
+            top: 20px; right: 80px; width: 55px; height: 55px;
+            background: radial-gradient(circle, #fff700 10%, #ff8800 100%);
+            border-radius: 50%;
+            box-shadow: 0 0 25px #ffaa00;
+            z-index: 1;
+            animation: sunPulse 4s ease-in-out infinite alternate;
+        }
+
+        @keyframes sunPulse {
+            0% { transform: scale(1); box-shadow: 0 0 20px #ffaa00; }
+            100% { transform: scale(1.1); box-shadow: 0 0 35px #ffaa00, 0 0 50px #ff5500; }
+        }
+
+        /* ก้อนเมฆ */
+        .cloud {
+            position: absolute; font-size: 55px; color: rgba(255, 255, 255, 0.9); z-index: 1; pointer-events: none;
+            filter: drop-shadow(0px 3px 3px rgba(0,0,0,0.05));
+        }
+        .cloud1 { top: 15px; animation: driftCloud 28s linear infinite; }
+        .cloud2 { top: 55px; animation: driftCloud 40s linear infinite; animation-delay: -12s; font-size: 38px; opacity: 0.75; }
+        .cloud3 { top: 30px; animation: driftCloud 48s linear infinite; animation-delay: -24s; font-size: 65px; opacity: 0.85; }
+
+        @keyframes driftCloud {
+            0% { transform: translateX(950px); }
+            100% { transform: translateX(-150px); }
+        }
+
+        /* ภูเขา */
+        .mountain {
+            position: absolute; background: #2e8b57; border-radius: 50% 50% 0 0; bottom: 60%; z-index: 2;
+        }
+
+        /* ต้นไม้พริ้วไหว */
+        .tree-scroll { position: absolute; z-index: 3; transform-origin: bottom center; }
+        .tree-sway { 
+            width: 150px; 
+            height: auto;
+            transform-origin: bottom center; 
+            animation: swayAction 3s ease-in-out infinite alternate; 
+        }
+
+        .river-bank-top {
+            position: absolute; top: 40%; width: 100%; height: 15px; background: #8b4513; z-index: 4; 
+        }
+
+        /* พื้นน้ำและคลื่นน้ำไหล */
+        .river-base {
+            position: absolute; top: 40%; left: 0; width: 100%; height: 60%;
+            background: linear-gradient(to bottom, #1e90ff 0%, #104e8b 100%); z-index: 2;
+        }
+
+        .wave { position: absolute; top: 40%; left: 0; width: 100%; height: 60%; background-repeat: repeat; z-index: 2; pointer-events: none; }
+        .wave-back {
+            background-image: radial-gradient(circle at 50% 100%, rgba(255,255,255,0.08) 15%, transparent 16%);
+            background-size: 160px 40px; animation: flowBack 8s linear infinite; opacity: 0.7;
+        }
+        .wave-front {
+            background-image: radial-gradient(circle at 50% 100%, rgba(255,255,255,0.14) 10%, transparent 11%);
+            background-size: 100px 30px; background-position-y: 15px; animation: flowFront 4s linear infinite;
+        }
+
+        @keyframes flowBack { 0% { background-position-x: 0px; } 100% { background-position-x: -160px; } }
+        @keyframes flowFront { 0% { background-position-x: 0px; } 100% { background-position-x: -100px; } }
+
+        /* ตัวเรือ */
+        #player {
+            position: absolute; width: 255px; height: 150px; 
+            background-image: url('images/boat.png'); background-size: contain; background-repeat: no-repeat; background-position: center;
+            transition: top 0.15s ease-out; z-index: 10;
+        }
+
+        .entity { position: absolute; display: flex; align-items: center; justify-content: center; z-index: 5; }
+        .lotus-item { width: 50px; height: 50px; font-size: 40px; }
+
+        /* สิ่งกีดขวาง */
+        .obstacle-log {
+            width: 30px; height: 85px; background: linear-gradient(to right, #a0522d, #8b4513, #5c2e0b);
+            border: 2px solid #4a2304; border-radius: 6px; box-shadow: 4px 4px 6px rgba(0,0,0,0.4);
+        }
+        .obstacle-rock {
+            width: 60px; height: 50px; background: linear-gradient(to bottom, #95a5a6, #7f8c8d);
+            border: 2px solid #616a6b; border-radius: 50% 50% 30% 30%; box-shadow: 0 4px 6px rgba(0,0,0,0.4);
+        }
+        .obstacle-bush {
+            width: 50px; height: 35px; background: linear-gradient(to bottom, #27ae60, #1e824c);
+            border: 2px solid #145a32; border-radius: 40% 40% 50% 50%; box-shadow: 0 3px 5px rgba(0,0,0,0.3);
+        }
+
+        .station-building { width: 160px; height: 160px; background-size: contain; background-repeat: no-repeat; background-position: bottom; z-index: 3; }
+        
+        .finish-line {
+            width: 40px; height: 270px; background: repeating-conic-gradient(#ffffff 0% 25%, #000000 0% 50%) 0% 0% / 20px 20px;
+            border-left: 4px solid #fff; border-right: 4px solid #fff; box-shadow: 0 0 15px rgba(0,0,0,0.5); z-index: 4;
+        }
+
+        /* หน้าต่างตอบคำถามและจบเกม */
+        #quiz-overlay, #game-over {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.7); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 100;
+        }
+
+        /* ขยายกล่องคำถามให้กว้างขึ้น เพื่อรองรับบทกลอนสองฝั่งได้อย่างเหมาะสม */
+        /* แก้ไขขนาดของ #quiz-box เดิมเพื่อขยายพื้นที่ให้กลอนยาวๆ ไม่หักบรรทัด */
+#quiz-box {
+    background: #fff; 
+    padding: 25px; 
+    border-radius: 15px; 
+    text-align: center; 
+    width: 85%; 
+    max-width: 620px; /* ขยายจากเดิม 550px เป็น 620px */
+    border: 5px solid #8b5a2b;
+}
+
+/* --- [เพิ่มใหม่] สไตล์กลอนสุภาพจัดวรรคให้อ่านง่ายและวรรคหลังตรงกันเป๊ะ --- */
+.poetry-container {
+    display: inline-block;
+    text-align: left;
+    margin: 15px auto;
+    width: 100%;
+    max-width: 560px; /* จำกัดความกว้างรวมของกลุ่มกลอน */
+}
+
+.poetry-row {
+    display: flex;
+    width: 100%;
+    margin-bottom: 6px;
+    font-size: 17px; /* ขนาดตัวอักษรของกลอน */
+    line-height: 1.6;
+}
+
+.poetry-row .v1 {
+    width: 50%;
+    text-align: left;
+    padding-right: 15px;
+    box-sizing: border-box;
+    color: #333;
+    white-space: nowrap; /* ป้องกันไม่ให้วรรคแรกตัดบรรทัดเอง */
+}
+
+.poetry-row .v2 {
+    width: 50%;
+    text-align: left;
+    padding-left: 20px;
+    box-sizing: border-box;
+    color: #333;
+    white-space: nowrap; /* ป้องกันไม่ให้วรรคหลังตัดบรรทัดเอง */
+    border-left: 2px dashed rgba(210, 105, 30, 0.2); /* เพิ่มเส้นประบางๆ ระหว่างวรรคช่วยนำสายตา */
+}
+
+.poetry-question {
+    font-size: 18px;
+    font-weight: bold;
+    margin-top: 18px;
+    color: #8b5a2b;
+    text-align: center;
+    width: 100%;
+}
+
+/* รองรับการแสดงผลบนมือถือ (Responsive) */
+@media (max-width: 600px) {
+    .poetry-row {
+        font-size: 12.5px; /* ย่อขนาดตัวอักษรกลอนลงเมื่อเปิดบนจอมือถือเพื่อป้องกันข้อความล้น */
+    }
+    .poetry-row .v1 {
+        padding-right: 8px;
+    }
+    .poetry-row .v2 {
+        padding-left: 10px;
+    }
+}
+
+        /* กล่องจบเกมให้ใช้ขนาดเดิมเพื่อสัดส่วนที่สวยงาม */
+        #game-over-box {
+            background: #fff; 
+            padding: 25px; 
+            border-radius: 15px; 
+            text-align: center; 
+            width: 85%; 
+            max-width: 550px; 
+            border: 5px solid #8b5a2b;
+            box-sizing: border-box;
+        }
+
+        /* จัดระเบียบการแสดงผลของตัวกลอนคำถาม */
+        #question-text {
+            font-family: 'Courier New', Courier, monospace; /* ใช้ฟอนต์ Monospace เพื่อให้ระยะช่องไฟและตัวอักษรเท่ากันเป๊ะ */
+            font-size: 17px;          /* ขนาดที่พอเหมาะ ช่วยให้ข้อความไม่ยาวเกินขอบจอ */
+            line-height: 1.8;         /* ระยะห่างบรรทัดอ่านง่ายขึ้น */
+            white-space: pre-wrap;    /* แสดงผลการเคาะวรรคตรงตามที่ตั้งค่าใน JS */
+            text-align: left;         /* ชิดซ้ายเพื่อให้สองฝั่งตรงแนวกัน */
+            display: inline-block;    /* บีบเนื้อหาข้อความทั้งหมดเพื่อให้กึ่งกลางหน้าจอ */
+            margin: 15px auto;
+            font-weight: bold;
+            color: #222;
+        }
+
+        .quiz-location-img {
+            max-width: 100%;          /* ป้องกันภาพล้นกล่อง */
+            height: auto;             /* ให้ความสูงปรับตามสัดส่วนภาพจริงอัตโนมัติ */
+            max-height: 220px;        /* จำกัดความสูงไม่ให้กินพื้นที่หน้าจอมากเกินไป */
+            object-fit: contain;      /* แสดงภาพเต็มใบ ไม่โดนตัดขอบ และไม่บิดเบี้ยว */
+            display: block;           /* เปิดใช้งานเพื่อให้จัดกึ่งกลางด้วย margin auto ได้ */
+            margin: 12px auto;        /* จัดวางภาพให้อยู่กึ่งกลางกล่องพอดี */
+            border-radius: 10px;
+            border: 3px solid #d2691e;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+            background-color: #ffffff; /* เปลี่ยนเป็นสีขาวเพื่อให้เนียนไปกับพื้นหลังของรูปภาพ */
+        }
+
+        .player-info-display {
+            background: #fffaf0; border: 2px dashed #d2691e; padding: 10px; border-radius: 8px; margin-bottom: 15px; font-size: 18px; color: #5c2e0b;
+        }
+
+        .choice-btn, .restart-btn {
+            background: #d2691e; color: white; border: none; padding: 12px 20px; margin: 8px; font-size: 18px;
+            border-radius: 8px; cursor: pointer; width: 45%; font-weight: bold; font-family: inherit;
+        }
+        .choice-btn:hover, .restart-btn:hover { background: #a0522d; }
+        
+        .controls-hint {
+            margin-top: 15px; background: #fff; padding: 10px 20px; border-radius: 8px; border: 2px solid #8b5a2b; font-size: 16px;
+        }
+
+        /* ปุ่มจอยสติ๊กสำหรับมือถือ */
+        #mobile-controls {
+            display: none; 
+            position: fixed;
+            bottom: 25px;
+            right: 25px;
+            width: 160px;
+            height: 160px;
+            z-index: 150;
+        }
+
+        .dpad-btn {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            background: rgba(210, 105, 30, 0.85);
+            color: white;
+            border: 3px solid #8b5a2b;
+            border-radius: 12px;
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            touch-action: none; 
+        }
+        .dpad-btn:active {
+            background: rgba(139, 69, 19, 1);
+            transform: scale(0.95);
+        }
+        #btn-up    { top: 0; left: 55px; }
+        #btn-down  { bottom: 0; left: 55px; }
+        #btn-left  { top: 55px; left: 0; }
+        #btn-right { top: 55px; right: 0; }
+
+        @media (max-width: 1024px) {
+            #mobile-controls {
+                display: block; 
+            }
+            .controls-hint {
+                display: none; 
+            }
+        }
+        
+        .splash-wave {
+            position: absolute;
+            width: 60px;
+            height: 30px;
+            background: rgba(255, 255, 255, 0.4);
+            border-radius: 50%;
+            bottom: 5px;
+            left: -20px; 
+            display: none; 
+            filter: blur(5px);
+        }
+
+        @keyframes splashAnim {
+            0% { transform: scale(0.5); opacity: 1; }
+            100% { transform: scale(1.5); opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="start-screen">
+        <div class="form-box">
+            <h1>⚓ เกมผจญภัยไปไหน? ⚓</h1>
+            <div class="form-group">
+                <label for="input-name">ชื่อ-นามสกุล:</label>
+                <input type="text" id="input-name" placeholder="ระบุชื่อ หรือกดเริ่มเกมได้ทันที" autocomplete="off">
+            </div>
+            <div class="form-group">
+                <label for="input-grade">ชั้น / ห้อง:</label>
+                <input type="text" id="input-grade" placeholder="เช่น ม.1/1" autocomplete="off">
+            </div>
+            <div class="form-group">
+                <label for="input-school">โรงเรียน:</label>
+                <input type="text" id="input-school" placeholder="เช่น โรงเรียนบ้านปล่องเหลี่ยม" autocomplete="off">
+            </div>
+            <button class="start-btn" onclick="startGame()">ลงทะเบียน & เริ่มเดินทาง 🛶</button>
+        </div>
+    </div>
+
+    <div id="game-ui">
+        <div>ชีวิต: <span id="lives">❤️❤️❤️❤️❤️</span></div>
+        <div>ดอกบัว: <span id="score">0</span></div>
+        <div>ระยะทาง: <span id="distance">0</span> ม.</div>
+    </div>
+
+    <div id="game-board">
+        <div class="sun"></div>
+        <div class="cloud cloud1">☁️</div>
+        <div class="cloud cloud2">☁️</div>
+        <div class="cloud cloud3">☁️</div>
+
+        <div class="mountain" style="width: 300px; height: 150px; left: -50px;"></div>
+        <div class="mountain" style="width: 400px; height: 200px; left: 200px;"></div>
+        <div class="mountain" style="width: 350px; height: 170px; left: 600px;"></div>
+
+        <div class="tree-scroll" style="left: 60px; bottom: 60%;" data-speed="0.12">
+            <img src="images/tree.gif" class="tree-sway" style="width: 60px; height: auto;">
+        </div>
+        <div class="tree-scroll" style="left: 250px; bottom: 55%;" data-speed="0.18">
+            <img src="images/coconut.gif" class="tree-sway" style="width: 60px; height: auto;">
+        </div>
+        <div class="tree-scroll" style="left: 500px; bottom: 55%;" data-speed="0.14">
+            <img src="images/tree.gif" class="tree-sway" style="width: 60px; height: auto;">
+        </div>
+        <div class="tree-scroll" style="left: 760px; bottom: 55%;" data-speed="0.22">
+            <img src="images/coconut.gif" class="tree-sway" style="width: 60px; height: auto;">
+        </div>
+
+        <div class="river-bank-top"></div>
+        <div class="river-base"></div>
+        <div class="wave wave-back"></div>
+        <div class="wave wave-front"></div>
+
+        <div id="player"></div>
+        <div id="wave-effect" class="splash-wave"></div>
+    </div>
+
+    <div id="quiz-overlay">
+        <div id="quiz-box">
+            <h2 id="question-text">คำถาม?</h2>
+            <img id="quiz-image" class="quiz-location-img" src="" alt="รูปภาพสถานที่">
+            <div id="choices-container"></div>
+        </div>
+    </div>
+
+    <div id="game-over">
+        <div id="game-over-box">
+            <h1 id="end-title">สิ้นสุดการเดินทาง</h1>
+            <div class="player-info-display" id="end-player-info"></div>
+            <h2 id="final-score" style="color: #d2691e;">ดอกบัวสะสม: 0</h2>
+            <button class="restart-btn" id="end-btn" onclick="location.reload()">เริ่มเดินทางใหม่</button>
+        </div>
+    </div>
+    
+    <div id="mobile-controls">
+        <div class="dpad-btn" id="btn-up">▲</div>
+        <div class="dpad-btn" id="btn-left">◀</div>
+        <div class="dpad-btn" id="btn-right">▶</div>
+        <div class="dpad-btn" id="btn-down">▼</div>
+    </div>
+
+    <div class="controls-hint">
+        🎮 <b>การควบคุม:</b> กดลูกศร <b>[ขวา ➡️]</b> เพื่อพายเดินหน้า | <b>[ซ้าย ⬅️]</b> ถอยหลัง | <b>[ขึ้น ⬆️] / [ลง ⬇️]</b> เพื่อเปลี่ยนเลเยอร์น้ำ (4 เลน)
+    </div>
+
+    <script>
+        const gameBoard = document.getElementById('game-board');
+        const playerEl = document.getElementById('player');
+        const scoreEl = document.getElementById('score');
+        const livesEl = document.getElementById('lives');
+        const distanceEl = document.getElementById('distance');
+        
+        const laneHeights = [150, 195, 240, 285]; 
+        let currentLane = 1; 
+        
+        let playerX = 100; 
+        let worldX = 0;    
+        const playerSpeed = 6;
+        
+        let score = 0;
+        let maxLives = 5;
+        let currentLives = 5;
+        
+        let isPaused = true; 
+        let isGameOver = false;
+        
+        let playerData = { name: "", grade: "", school: "" };
+        
+        let entities = []; 
+        let keys = {};     
+        const bgm = new Audio('https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3'); 
+        bgm.loop = true;
+        bgm.volume = 0.15; 
+
+        // 1. เปลี่ยนลิงก์เสียงชนสิ่งกีดขวาง (ใช้เสียงไม้กระแทกของ Google)
+        const crashSfx = new Audio('https://actions.google.com/sounds/v1/impacts/crash.ogg'); 
+        crashSfx.volume = 1.0;
+
+        // 2. เปลี่ยนลิงก์เสียงเก็บดอกบัว (ใช้เสียง Pop ของ Google)
+        const collectSfx = new Audio('https://actions.google.com/sounds/v1/cartoon/pop.ogg'); 
+        collectSfx.volume = 1.0;
+
+        // บังคับให้เบราว์เซอร์โหลดไฟล์เสียงเตรียมไว้ล่วงหน้า
+        crashSfx.load();
+        collectSfx.load();
+
+        function playCrashSound() {
+            crashSfx.currentTime = 0; 
+            crashSfx.play().catch(e => console.log("ติดปัญหาเล่นเสียงชน:", e));
+        }
+
+        function playCollectSound() {
+            collectSfx.currentTime = 0;
+            collectSfx.play().catch(e => console.log("ติดปัญหาเล่นเสียงเก็บไอเทม:", e));
+        }
+        // ==========================================
+        // ดึงบทกลอนที่จัดรูปเล่มอย่างสวยงามตามรูปที่ 2 มาแทนที่คำถามแรกใน Array
+        const questionBank = [
+            { 
+                q: `          กลับลงเรือพายล่องไปตามน้ำ     สู่วัดงามเรื่องเล่าแต่หนไหน
+เกิดแสงพุ่งประหลาดดาราลัย               เคลื่อนที่ไปมุ่งสู่พสุธา
+กราบพระพุทธศักดิ์สิทธิ์ "สุคโต" มั่น        มิ่งกำนัล "หลวงพ่อรุ่ง" ให้บูชา
+มีตลาดเศรษฐีของนานา                   มีวังปลาหน้าวัดให้ทำทาน
+
+คำถาม: สถานที่แห่งนี้ทุกคนคิดถึงที่ใด`, 
+                choices: ["วัดท่าไม้", "วัดอ่างทอง", "วัดท่ากระบือ", "วัดนางสาว"], 
+                ans: "วัดอ่างทอง", 
+                img: "images/station1.jpg" 
+            },
+            { q: `          เรือมาจอดหน้าวัดพนมมือ 	ขึ้นเลื่องลือพระประธานแกร่งมั่นคง
+องค์พระพุทธศิลาแลงแสงดำรง	    จิตมุ่งตรงกราบไหว้เพื่อใจงาม
+อุโบสถสงบเงียบเลียบฝั่งน้ำ 	    ช่างงดงามร่มรื่นชวนใจถาม 
+เป็นที่พึ่งชุมชนทุกโมงยาม	    เรือล่องตามกระแสแลถัดไป
+
+คำถาม: สถานที่แห่งนี้ทุกคนคิดถึงที่ใด`, choices: ["วัดอ่างทอง", "วัดดอนไก่ดี", "วัดนางสาว", "วัดท่าไม้"], ans: "วัดดอนไก่ดี", img: "images/station2.jpg" },
+            { q: `          ล่องเรือเห็นอักษรยามยลย่ำ	 ล้วนจดจำเตือนใจทุกสถาน
+	ดาราดังปัดเป่าเคราะห์มาเนิ่นนาน		เสียงลือขานดังไกลทุกคืนวัน
+	มาบูชาพระราหูผู้เรืองฤทธิ์ 		ปัดสิ่งร้ายในชีวิตให้แปรผัน 
+	คนแห่มาพึ่งพาพูนอนันต์		ให้ทุกวันมีสุขชื่นรื่นฤทัย
+ 
+
+คำถาม: สถานที่แห่งนี้ทุกคนคิดถึงที่ใด`, choices: ["แม่น้ำท่าจีน", "หมู่บ้านเบญจรงค์ดอนไก่ดี", "วัดท่าไม้", "วัดนางสาว"], ans: "วัดท่าไม้", img: "images/station3.jpg" },
+            { q: `				แท่งอิฐสูงงามสง่าเปี่ยมราศี	
+ริมน้ำไหลเรือผ่านตระการดี		จุดนี้มีประวัติแต่ก่อนกาล			
+รอยอดีตโรงน้ำตาลโบราณเก่า 		ความเงียบเข้าแทนที่แทรกผสาน 
+ตั้งแต่สมัยรัชกาลที่ห้ามาช้านาน		เรือล่องผ่านชมนิเวศน์ตามเขตตรง 
+
+คำถาม: สถานที่แห่งนี้ทุกคนคิดถึงที่ใด`, choices: ["วัดท่าไม้", "วัดดอนไก่ดี", "ปล่องเหลี่ยม", "สวนกล้วยไม้"], ans: "ปล่องเหลี่ยม", img: "images/station4.jpg" },
+            { q: `	        เรือแล่นเลาะธรรมชาติผกาช่อ		แย้มกลีบรอหลากสีมหาศาล
+	สกุลหวายชูช่อบานตระการ			สีสดหวานกลิ่นอบอวลอุ่นไอดิน
+	เป็นพืชเศรษฐกิจส่งออกกว้าง 			งามทุกทางสดใหม่ไร้มลทิน 
+	ชาวสวนน้ำท่าดีมีทรัพย์กิน			ล่องวารินชื่นชมนิยมดู
+ 
+คำถาม: สถานที่แห่งนี้ทุกคนคิดถึงที่ใด`, choices: ["วัดดอนไก่ดี", "แม่น้ำท่าจีน", "วัดท่ากระบือ", "สวนกล้วยไม้"], ans: "สวนกล้วยไม้", img: "images/station5.jpg" },
+            { q: `	        ขึ้นจากน้ำเดินชมสังคมรอบ 		เป็นชุมชนโอท็อปอันกว้างใหญ่
+	ช่างขยันแต่งแต้มถ้วยโถไว้				วาดสีได้งดงามตามต้องการ
+	เด่นที่สุดคือเส้นทองผ่องอร่าม 			ตระการตางามเลิศประเสริฐศานต์ 
+	ฝีมือไทยประณีตมาช้านาน			เที่ยวชมฝั่งเบิกบานสำราญใจ
+ 
+คำถาม: สถานที่แห่งนี้ทุกคนคิดถึงที่ใด`, choices: ["หมู่บ้านเบญจรงค์ดอนไก่ดี", "สวนกล้วยไม้", "ปล่องเหลี่ยม", "แม่น้ำท่าจีน"], ans: "หมู่บ้านเบญจรงค์ดอนไก่ดี", img: "images/station6.jpg" },
+            { q: `	        เรือล่องเข้าสายน้ำสี่จังหวัด 	ไหลเลาะลัดหล่อเลี้ยงชีวิตใหม่
+แยกจากเจ้าพระยาหลั่งรินไป			วิถีไทยริมน้ำฉ่ำร่มเย็น
+คุ้งน้ำไหลคดเคี้ยวเลี้ยวลดหลั่ง			กระทบฝั่งเสียงคลื่นให้แลเห็น	
+วังมัจฉาฝูงปลาว่ายเลาะเล่น			รับลมเย็นชื่นกมลใจสุขเอย 
+ 
+คำถาม: สถานที่แห่งนี้ทุกคนคิดถึงที่ใด`, choices: ["แม่น้ำท่าจีน", "หมู่บ้านเบญจรงค์ดอนไก่ดี", "วัดท่าไม้", "วัดนางสาว"], ans: "แม่น้ำท่าจีน", img: "images/station7.jpg" },
+            { q: `	        เห็นรูปหล่อหลวงปู่รุ่งวิไลเด่น 		ความร่มเย็นเป็นสุขไร้ทุกข์คู่
+	กราบขอพรพึ่งใบบุญคุณอุ้มชู		องค์หลวงปู่ตั้งอยู่วัดทัศนาการ
+	ในอดีตตรงนี้คือท่าน้ำ 			ที่พวกควายลุยน้ำตามสถาน 
+	ข้ามไปมาค้าขายแต่โบราณ		วิวสายธารตรงนี้ช่างปรีดา
+ 
+คำถาม: สถานที่แห่งนี้ทุกคนคิดถึงที่ใด`, choices: ["แม่น้ำท่าจีน", "วัดนางสาว", "วัดท่ากระบือ", "สวนกล้วยไม้"], ans: "วัดท่ากระบือ", img: "images/station8.jpg" },
+            { q: `	        ล่องเรือต่อมาชมอารามเก่า 		มีเรื่องเล่าสองพี่น้องหนีพม่า
+	มาหลบภัยในโบสถ์รอดชีวา			ตั้งสัจจาบูรณะเมื่อพ้นภัย
+	มีโบสถ์มหาอุตม์เป็นจุดเด่น			ไม่มีหน้าต่างให้เห็นบานไหนไหน
+	ประตูเข้าออกบานเดียวเลื่องลือไกล		กราบหลวงพ่อดำใสในวิหาร
+ 
+คำถาม: สถานที่แห่งนี้ทุกคนคิดถึงที่ใด`, choices: ["วัดอ่างทอง", "วัดท่าไม้", "วัดท่ากระบือ", "วัดนางสาว"], ans: "วัดนางสาว", img: "images/station9.jpg" }
+        ];
+
+        function startGame() {
+            let nameField = document.getElementById('input-name').value.trim();
+            let gradeField = document.getElementById('input-grade').value.trim();
+            let schoolField = document.getElementById('input-school').value.trim();
+
+            playerData.name = nameField ? nameField : "ผู้พายเรือนิรนาม";
+            playerData.grade = gradeField ? gradeField : "ไม่ระบุชั้นเรียน";
+            playerData.school = schoolField ? schoolField : "โรงเรียนทั่วไป";
+
+            document.getElementById('start-screen').style.display = 'none';
+            isPaused = false;
+            
+            window.focus();
+            bgm.play().catch(err => console.log("BGM ถูกบล็อก:", err));
+        }
+
+        function generateLevel() {
+            const levelLength = 15000; 
+            
+            for (let i = 1; i <= 9; i++) {
+                let stationX = i * 1400; 
+                
+                const el = document.createElement('div');
+                el.className = 'entity station-building';
+                el.style.backgroundImage = `url('images/station${i}.png')`;
+                el.style.top = '20px'; 
+                gameBoard.appendChild(el);
+                
+                entities.push({
+                    element: el,
+                    absoluteX: stationX,
+                    lane: 0, 
+                    type: 'station',
+                    width: 160, 
+                    stationId: i, 
+                    active: true
+                });
+            }
+
+            const finishX = 10 * 1400; 
+            const finishEl = document.createElement('div');
+            finishEl.className = 'entity finish-line';
+            finishEl.style.top = '180px'; 
+            gameBoard.appendChild(finishEl);
+            
+            entities.push({
+                element: finishEl,
+                absoluteX: finishX,
+                lane: -1, 
+                type: 'finish',
+                width: 40,
+                active: true
+            });
+
+            for(let x = 600; x < levelLength; x += Math.random() * 180 + 220) {
+                let isOverlap = false;
+                for(let i = 1; i <= 10; i++) {
+                    if (Math.abs(x - (i * 1400)) < 220) { isOverlap = true; break; }
+                }
+                if (isOverlap) continue;
+
+                let lane = Math.floor(Math.random() * 4);
+                let rand = Math.random();
+                let type = (rand < 0.40) ? 'item' : 'obstacle';
+
+                const el = document.createElement('div');
+                el.className = 'entity';
+                let width = 60; 
+                
+                if(type === 'item') {
+                    el.classList.add('lotus-item');
+                    el.innerText = '🌸'; 
+                    el.style.top = (laneHeights[lane] + 50) + 'px';
+                    width = 50;
+                } 
+                else if(type === 'obstacle') {
+                    let obsRand = Math.random();
+                    if (obsRand < 0.35) {
+                        el.classList.add('obstacle-log');
+                        el.style.top = (laneHeights[lane] + 30) + 'px';
+                        width = 30; 
+                    } else if (obsRand < 0.75) {
+                        el.classList.add('obstacle-rock');
+                        el.style.top = (laneHeights[lane] + 50) + 'px';
+                        width = 60;
+                    } else {
+                        el.classList.add('obstacle-bush');
+                        el.style.top = (laneHeights[lane] + 60) + 'px';
+                        width = 50;
+                    }
+                }
+                
+                gameBoard.appendChild(el);
+                entities.push({ element: el, absoluteX: x, lane: lane, type: type, width: width, active: true });
+            }
+        }
+        generateLevel();
+
+        // --- ระบบควบคุมทางคีย์บอร์ด (คอมพิวเตอร์) ---
+        window.addEventListener('keydown', (e) => {
+            keys[e.key] = true;
+            if (isPaused || isGameOver) return;
+            
+            if (e.key === 'ArrowUp' && currentLane > 0) {
+                currentLane--;
+                updatePlayerY();
+            } else if (e.key === 'ArrowDown' && currentLane < 3) {
+                currentLane++;
+                updatePlayerY();
+            }
+        });
+        window.addEventListener('keyup', (e) => { keys[e.key] = false; });
+
+        // --- ระบบจอยสติ๊กสัมผัสบนหน้าจอมือถือ ---
+        function setupMobileControls() {
+            const btnUp = document.getElementById('btn-up');
+            const btnDown = document.getElementById('btn-down');
+            const btnLeft = document.getElementById('btn-left');
+            const btnRight = document.getElementById('btn-right');
+
+            btnUp.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                if (isPaused || isGameOver) return;
+                if (currentLane > 0) { currentLane--; updatePlayerY(); }
+            });
+
+            btnDown.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                if (isPaused || isGameOver) return;
+                if (currentLane < 3) { currentLane++; updatePlayerY(); }
+            });
+
+            btnLeft.addEventListener('touchstart', (e) => { e.preventDefault(); keys['ArrowLeft'] = true; });
+            btnLeft.addEventListener('touchend', (e) => { e.preventDefault(); keys['ArrowLeft'] = false; });
+
+            btnRight.addEventListener('touchstart', (e) => { e.preventDefault(); keys['ArrowRight'] = true; });
+            btnRight.addEventListener('touchend', (e) => { e.preventDefault(); keys['ArrowRight'] = false; });
+        }
+        setupMobileControls();
+
+        function updatePlayerY() { playerEl.style.top = laneHeights[currentLane] + 'px'; }
+        updatePlayerY();
+
+        function triggerQuiz(entityObj) {
+            isPaused = true;
+            bgm.volume = 0.05;
+            keys['ArrowRight'] = false;
+            keys['ArrowLeft'] = false;
+
+            const quizOverlay = document.getElementById('quiz-overlay');
+            const qText = document.getElementById('question-text');
+            const qImg = document.getElementById('quiz-image');
+            const cContainer = document.getElementById('choices-container');
+            
+            const q = questionBank[entityObj.stationId - 1];
+            qText.innerText = q.q;
+            qImg.src = q.img;
+            cContainer.innerHTML = '';
+            
+            q.choices.forEach(choice => {
+                const btn = document.createElement('button');
+                btn.className = 'choice-btn';
+                btn.innerText = choice;
+                btn.onclick = () => {
+                    if (choice === q.ans) {
+                        score += 5;
+                        alert("ถูกต้อง! ได้รับดอกบัวโบนัส 5 ดอก");
+                    } else {
+                        alert("ผิดเสียนั่น! คำตอบที่ถูกคือ: " + q.ans);
+                    }
+                    scoreEl.innerText = score;
+                    quizOverlay.style.display = 'none';
+                    entityObj.element.style.display = 'none';
+                    entityObj.active = false;
+                    bgm.volume = 0.15;
+                    setTimeout(() => { isPaused = false; window.focus(); }, 200);
+                };
+                cContainer.appendChild(btn);
+            });
+            quizOverlay.style.display = 'flex';
+        }
+
+        function updateLives() {
+            let hearts = '';
+            for(let i=0; i<currentLives; i++) hearts += '❤️';
+            for(let i=currentLives; i<maxLives; i++) hearts += '🤍';
+            livesEl.innerText = hearts;
+            if (currentLives <= 0) endGame(false); 
+        }
+
+        function endGame(isVictory) {
+            isGameOver = true;
+            isPaused = true;
+            keys = {};
+            bgm.pause();
+            bgm.currentTime = 0; 
+            
+            const gameOverBox = document.getElementById('game-over-box');
+            const endTitle = document.getElementById('end-title');
+            const endPlayerInfo = document.getElementById('end-player-info');
+            const endBtn = document.getElementById('end-btn');
+
+            if (isVictory) {
+                endTitle.innerHTML = "🎉 สิ้นสุดการเดินทางแล้ว! 🎉";
+                endTitle.style.color = "#27ae60";
+                gameOverBox.style.borderColor = "#27ae60";
+                endBtn.innerText = "เดินทางอีกครั้ง";
+                endBtn.style.background = "#27ae60";
+            } else {
+                endTitle.innerHTML = "❌ สิ้นสุดการเดินทาง (เรือล่ม) ❌";
+                endTitle.style.color = "#c0392b";
+                gameOverBox.style.borderColor = "#c0392b";
+                endBtn.innerText = "เริ่มเดินทางใหม่";
+                endBtn.style.background = "#d2691e";
+            }
+
+            endPlayerInfo.innerHTML = `<b>ผู้พายเรือ:</b> ${playerData.name} &nbsp;&nbsp; <b>ชั้น:</b> ${playerData.grade}<br><b>โรงเรียน:</b> ${playerData.school}`;
+            document.getElementById('final-score').innerText = "ดอกบัวสะสมทั้งหมด: " + score + " ดอก";
+            document.getElementById('game-over').style.display = 'flex';
+        }
+
+        // --- Game Loop ---
+        function gameLoop() {
+            if (!isPaused && !isGameOver) {
+                if (keys['ArrowRight']) {
+                    if (playerX < 350) { playerX += playerSpeed; } 
+                    else { worldX += playerSpeed; }
+                }
+                if (keys['ArrowLeft']) {
+                    if (playerX > 50) { playerX -= playerSpeed; } 
+                    else if (worldX > 0) { worldX -= playerSpeed; }
+                }
+
+                playerEl.style.left = playerX + 'px';
+                distanceEl.innerText = Math.floor(worldX / 10);
+
+                const mountains = document.querySelectorAll('.mountain');
+                mountains[0].style.transform = `translateX(${-(worldX * 0.1)}px)`;
+                mountains[1].style.transform = `translateX(${-(worldX * 0.2)}px)`;
+                mountains[2].style.transform = `translateX(${-(worldX * 0.15)}px)`;
+
+                const bgTrees = document.querySelectorAll('.tree-scroll');
+                bgTrees.forEach(tree => {
+                    const speed = tree.getAttribute('data-speed');
+                    tree.style.transform = `translateX(${-(worldX * speed)}px)`;
+                });
+
+                entities.forEach(ent => {
+                    if (!ent.active) return;
+                    let screenX = ent.absoluteX - worldX;
+                    ent.element.style.left = screenX + 'px';
+
+                    let isColliding = false;
+                    
+                    if (ent.type === 'station') {
+                        if (currentLane === 0 && screenX < (playerX + 240) && (screenX + ent.width) > playerX) {
+                            isColliding = true;
+                        }
+                    } 
+                    else if (ent.type === 'finish') {
+                        if (screenX < (playerX + 240) && (screenX + ent.width) > playerX) {
+                            isColliding = true;
+                        }
+                    } 
+                    else {
+                        if (ent.lane === currentLane && screenX < (playerX + 240) && (screenX + ent.width) > playerX) {
+                            isColliding = true;
+                        }
+                    }
+
+                    if (isColliding) {
+                        if (ent.type === 'item') {
+                            score++;
+                            scoreEl.innerText = score;
+                            playCollectSound();
+                            ent.active = false;
+                            ent.element.style.display = 'none';
+                        } 
+                        else if (ent.type === 'obstacle') {
+                            currentLives--;
+                            updateLives();
+                            playCrashSound();
+                            ent.active = false;
+                            ent.element.style.opacity = '0.3'; 
+                            gameBoard.style.transform = 'translate(-8px, 5px)';
+                            setTimeout(() => gameBoard.style.transform = 'none', 100);
+                        } 
+                        else if (ent.type === 'station') {
+                            triggerQuiz(ent);
+                        }
+                        else if (ent.type === 'finish') {
+                            endGame(true);
+                        }
+                    }
+                    if (screenX < -200) { ent.element.style.display = 'none'; }
+                });
+            }
+            requestAnimationFrame(gameLoop);
+            
+            const waveEl = document.getElementById('wave-effect');
+            if (keys['ArrowRight'] || keys['ArrowLeft']) {
+                waveEl.style.display = 'block';
+                waveEl.style.animation = 'splashAnim 0.5s infinite';
+                waveEl.style.left = keys['ArrowRight'] ? '-20px' : '200px'; 
+            } else {
+                waveEl.style.display = 'none';
+            }
+        }
+
+        requestAnimationFrame(gameLoop);
+    </script>
+</body>
+</html>
