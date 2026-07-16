@@ -20,7 +20,12 @@
             user-select: none;
             -webkit-user-select: none;
         }
-
+        canvas {
+            max-width: 100vw;
+            max-height: 100vh;
+            object-fit: contain; /* ทำให้เกมขยายพอดีจอโดยไม่เสียสัดส่วน */
+            display: block;
+        }
         /* --- หน้าจอเริ่มเกม --- */
         #start-screen {
             position: fixed;
@@ -552,6 +557,28 @@
             collectSfx.currentTime = 0;
             collectSfx.play().catch(e => console.log("ติดปัญหาเล่นเสียงเก็บไอเทม:", e));
         }
+        let cameraX = 0;
+
+        function draw() {
+            // 2. อัปเดตกล้องให้เรืออยู่กึ่งกลางจอเสมอ
+            // ให้เรืออยู่ตรงกลางหน้าจอ (canvas.width / 2)
+        cameraX = boat.x - (canvas.width / 2);
+
+            // ป้องกันกล้องเลื่อนออกนอกฉาก (ถ้าไม่อยากให้เห็นที่ว่างๆ)
+        if (cameraX < 0) cameraX = 0; 
+
+            // 3. เริ่มวาด
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+        // สำคัญ: เวลาสั่งวาด ให้ลบ cameraX ออกจากตำแหน่งวัตถุ
+        // ตัวอย่างการวาดเรือ:
+        ctx.drawImage(boatImg, boat.x - cameraX, boat.y);
+
+        // ตัวอย่างการวาดสิ่งกีดขวาง:
+        obstacles.forEach(obs => {
+        ctx.drawImage(obsImg, obs.x - cameraX, obs.y);
+    });
+}
         // ==========================================
         // ดึงบทกลอนที่จัดรูปเล่มอย่างสวยงามตามรูปที่ 2 มาแทนที่คำถามแรกใน Array
         const questionBank = [
