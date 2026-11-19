@@ -24,6 +24,7 @@
       border-radius: 12px;
       background: #2563eb;
       color: #fff;
+      cursor: pointer;
     }
     button.ctrl:active { background: #1d4ed8; }
     button.stop { background: #dc2626; }
@@ -35,6 +36,7 @@
       background: #16a34a;
       color: #fff;
       margin-bottom: 16px;
+      cursor: pointer;
     }
     .row { display: flex; justify-content: center; align-items: center; }
     #status { margin-bottom: 12px; color: #93c5fd; }
@@ -59,8 +61,7 @@
 
   <script>
     const UART_SERVICE = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
-    const UART_RX_CHAR = "6e400002-b5a3-f393-e0a9-e50e24dcca9e";
-    let rxChar = null;
+    let writeChar = null;
 
     async function connectBLE() {
       try {
@@ -71,7 +72,14 @@
         });
         const server = await device.gatt.connect();
         const service = await server.getPrimaryService(UART_SERVICE);
-        rxChar = await service.getCharacteristic(UART_RX_CHAR);
+        const chars = await service.getCharacteristics();
+
+        // ค้นหา Characteristic ที่รองรับการเขียนข้อมูลเข้า micro:bit อัตโนมัติ
+        writeChar = chars.find(c => c.properties.writeWithoutResponse || c.properties.write);
+
+        if (!writeChar) {
+          throw new Error("ไม่พบช่องส่งข้อมูล UART บน micro:bit");
+        }
         document.getElementById("status").innerText = "เชื่อมต่อแล้ว: " + (device.name || "micro:bit");
       } catch (err) {
         document.getElementById("status").innerText = "เชื่อมต่อไม่สำเร็จ: " + err.message;
@@ -79,13 +87,16 @@
     }
 
     async function sendCmd(cmd) {
-      if (!rxChar) return;
+      if (!writeChar) {
+        document.getElementById("status").innerText = "กรุณากดเชื่อมต่อ micro:bit ก่อน";
+        return;
+      }
       const data = new TextEncoder().encode(cmd + "\n");
       try {
-        if (rxChar.writeValueWithoutResponse) {
-          await rxChar.writeValueWithoutResponse(data);
+        if (writeChar.properties.writeWithoutResponse) {
+          await writeChar.writeValueWithoutResponse(data);
         } else {
-          await rxChar.writeValue(data);
+          await writeChar.writeValue(data);
         }
         document.getElementById("status").innerText = "ส่งคำสั่งแล้ว: " + cmd;
       } catch (err) {
