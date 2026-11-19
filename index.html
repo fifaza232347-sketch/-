@@ -15,10 +15,10 @@
       touch-action: manipulation;
     }
     button.ctrl {
-      width: 92px;
-      height: 76px;
+      width: 96px;
+      height: 80px;
       margin: 6px;
-      font-size: 18px;
+      font-size: 17px;
       font-weight: bold;
       border: none;
       border-radius: 12px;
@@ -46,27 +46,15 @@
   <button class="connect" onclick="connectBLE()">เชื่อมต่อ micro:bit (BLE)</button>
 
   <div class="row">
-    <button class="ctrl"
-      onpointerdown="sendCmd('F')"
-      onpointerup="sendCmd('S')"
-      onpointerleave="sendCmd('S')">เดินหน้า<br>(F)</button>
+    <button class="ctrl" onclick="sendCmd('F')">เดินหน้า<br>(F)</button>
   </div>
   <div class="row">
-    <button class="ctrl"
-      onpointerdown="sendCmd('L')"
-      onpointerup="sendCmd('S')"
-      onpointerleave="sendCmd('S')">ซ้าย<br>(L)</button>
+    <button class="ctrl" onclick="sendCmd('L')">ซ้าย<br>(L)</button>
     <button class="ctrl stop" onclick="sendCmd('S')">หยุด<br>(S)</button>
-    <button class="ctrl"
-      onpointerdown="sendCmd('R')"
-      onpointerup="sendCmd('S')"
-      onpointerleave="sendCmd('S')">ขวา<br>(R)</button>
+    <button class="ctrl" onclick="sendCmd('R')">ขวา<br>(R)</button>
   </div>
   <div class="row">
-    <button class="ctrl"
-      onpointerdown="sendCmd('B')"
-      onpointerup="sendCmd('S')"
-      onpointerleave="sendCmd('S')">ถอยหลัง<br>(B)</button>
+    <button class="ctrl" onclick="sendCmd('B')">ถอยหลัง<br>(B)</button>
   </div>
 
   <script>
@@ -92,8 +80,17 @@
 
     async function sendCmd(cmd) {
       if (!rxChar) return;
-      const encoder = new TextEncoder();
-      await rxChar.writeValue(encoder.encode(cmd + "\n"));
+      const data = new TextEncoder().encode(cmd + "\n");
+      try {
+        if (rxChar.writeValueWithoutResponse) {
+          await rxChar.writeValueWithoutResponse(data);
+        } else {
+          await rxChar.writeValue(data);
+        }
+        document.getElementById("status").innerText = "ส่งคำสั่งแล้ว: " + cmd;
+      } catch (err) {
+        document.getElementById("status").innerText = "ส่งคำสั่งไม่สำเร็จ: " + err.message;
+      }
     }
   </script>
 </body>
