@@ -1,4 +1,120 @@
-async function sendCmd(cmd) {
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>BitCar Bluetooth Controller</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      background: #111827;
+      color: #f9fafb;
+      text-align: center;
+      margin: 0;
+      padding: 20px;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    button.ctrl {
+      width: 96px;
+      height: 80px;
+      margin: 6px;
+      font-size: 17px;
+      font-weight: bold;
+      border: none;
+      border-radius: 12px;
+      background: #2563eb;
+      color: #fff;
+      cursor: pointer;
+      touch-action: none;
+    }
+    button.ctrl:active {
+      background: #1d4ed8;
+      transform: scale(0.97);
+    }
+    button.stop {
+      background: #dc2626;
+    }
+    button.connect {
+      padding: 12px 20px;
+      font-size: 16px;
+      border: none;
+      border-radius: 10px;
+      background: #16a34a;
+      color: #fff;
+      margin-bottom: 16px;
+      cursor: pointer;
+    }
+    .row {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    #status {
+      margin-bottom: 12px;
+      color: #93c5fd;
+      word-break: break-all;
+    }
+  </style>
+</head>
+<body>
+  <h2>BitCar Mobile Controller</h2>
+  <div id="status">สถานะ: ยังไม่เชื่อมต่อ</div>
+  <button class="connect" onclick="connectBLE()">เชื่อมต่อ micro:bit (BLE)</button>
+
+  <div class="row">
+    <button class="ctrl" data-cmd="F">เดินหน้า<br>(F)</button>
+  </div>
+  <div class="row">
+    <button class="ctrl" data-cmd="L">ซ้าย<br>(L)</button>
+    <button class="ctrl stop" onclick="sendCmd('S')">หยุด<br>(S)</button>
+    <button class="ctrl" data-cmd="R">ขวา<br>(R)</button>
+  </div>
+  <div class="row">
+    <button class="ctrl" data-cmd="B">ถอยหลัง<br>(B)</button>
+  </div>
+
+  <script>
+    const UART_SERVICE = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
+    const UART_RX_CHAR = "6e400002-b5a3-f393-e0a9-e50e24dcca9e";
+    let writeChar = null;
+    let activeCmd = null;
+    let isSending = false;
+    let pendingCmd = null;
+
+    async function connectBLE() {
+      try {
+        document.getElementById("status").innerText = "กำลังค้นหา BBC micro:bit...";
+        const device = await navigator.bluetooth.requestDevice({
+          filters: [{ namePrefix: "BBC micro:bit" }],
+          optionalServices: [UART_SERVICE]
+        });
+        device.addEventListener("gattserverdisconnected", () => {
+          writeChar = null;
+          activeCmd = null;
+          isSending = false;
+          pendingCmd = null;
+          document.getElementById("status").innerText = "สถานะ: ตัดการเชื่อมต่อแล้ว";
+        });
+        const server = await device.gatt.connect();
+        const service = await server.getPrimaryService(UART_SERVICE);
+        const chars = await service.getCharacteristics();
+
+        writeChar = chars.find(c => c.uuid === UART_RX_CHAR)
+          || chars.find(c => c.properties.writeWithoutResponse || c.properties.write);
+
+        if (!writeChar) {
+          throw new Error("ไม่พบ Characteristic สำหรับส่งข้อมูล");
+        }
+        document.getElementById("status").innerText =
+          "เชื่อมต่อแล้ว: " + (device.name || "micro:bit") + " [" + writeChar.uuid.slice(0, 8) + "]";
+      } catch (err) {
+        document.getElementById("status").innerText = "เชื่อมต่อไม่สำเร็จ: " + err.message;
+      }
+    }
+
+    async function sendCmd(cmd) {
       if (!writeChar) {
         document.getElementById("status").innerText = "กรุณากดเชื่อมต่อ micro:bit ก่อน";
         return;
@@ -27,3 +143,33 @@ async function sendCmd(cmd) {
         }
       }
     }
+
+    document.querySelectorAll("button.ctrl[data-cmd]").forEach(btn => {
+      const cmd = btn.getAttribute("data-cmd");
+
+      btn.addEventListener("pointerdown", (e) => {
+        e.preventDefault();
+        if (activeCmd === cmd) return;
+        activeCmd = cmd;
+        try { btn.setPointerCapture(e.pointerId); } catch (_) {}
+        sendCmd(cmd);
+      });
+
+      const release = (e) => {
+        if (activeCmd !== cmd) return;
+        e.preventDefault();
+        activeCmd = null;
+        try {
+          if (btn.hasPointerCapture && btn.hasPointerCapture(e.pointerId)) {
+            btn.releasePointerCapture(e.pointerId);
+          }
+        } catch (_) {}
+        sendCmd("S");
+      };
+
+      btn.addEventListener("pointerup", release);
+      btn.addEventListener("pointercancel", release);
+    });
+  </script>
+</body>
+</html>
