@@ -12,7 +12,7 @@
       text-align: center;
       margin: 0;
       padding: 16px;
-      touch-action: none;
+      touch-action: manipulation;
       user-select: none;
       -webkit-user-select: none;
     }
@@ -105,6 +105,7 @@
       color: #fff;
       cursor: pointer;
       touch-action: none;
+      -webkit-touch-callout: none;
     }
     button.ctrl.diag {
       background: #1d4ed8;
@@ -128,8 +129,9 @@
     }
     #status {
       margin-bottom: 10px;
-      font-size: 14px;
+      font-size: 13px;
       color: #93c5fd;
+      word-break: break-word;
     }
   </style>
 </head>
@@ -147,14 +149,12 @@
     <button id="btn-disconnect" class="disconnect" onclick="disconnectBLE()">ตัดการเชื่อมต่อ</button>
   </div>
 
-  <!-- แถบปุ่มเพิ่ม/ลดความเร็ว -->
   <div class="speed-bar">
     <button class="spd-btn" onclick="changeSpeed(-1)">- ลดความเร็ว</button>
-    <div id="speed-label">ความเร็ว: ~78%</div>
+    <div id="speed-label">ความเร็ว: 78%</div>
     <button class="spd-btn" onclick="changeSpeed(1)">+ เพิ่มความเร็ว</button>
   </div>
 
-  <!-- แผงควบคุม 9 ช่อง -->
   <div class="pad">
     <button class="ctrl diag" data-key="FL">↖<br>หน้า-ซ้าย</button>
     <button class="ctrl" data-key="F">▲<br>เดินหน้า</button>
@@ -171,13 +171,15 @@
 
   <script>
     const UART_SERVICE = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
-    const UART_RX_CHAR = "6e400002-b5a3-f393-e0a9-e50e24dcca9e";
+    const UART_RX_CHAR = "6e400002-b5a3-f393-e0a9-e50e24dcca9e"; // micro:bit RX (เขียนเข้าบอร์ด)
+    const UART_TX_CHAR = "6e400003-b5a3-f393-e0a9-e50e24dcca9e"; // micro:bit TX (รับค่าจากบอร์ด)
+
     let bleDevice = null;
     let writeChar = null;
     let isSending = false;
     let pendingCmd = null;
     let lastSentCmd = "";
-    let currentSpeed = 200; // 80 - 255
+    let currentSpeed = 200;
 
     const activeKeys = new Set();
 
@@ -242,18 +244,23 @@
         });
 
         const server = await bleDevice.gatt.connect();
+        // หน่วงสั้น ๆ ให้ Android GATT Service Discover เสร็จสมบูรณ์
+        await new Promise(r => setTimeout(r, 300));
+
         const service = await server.getPrimaryService(UART_SERVICE);
         const chars = await service.getCharacteristics();
 
-        writeChar = chars.find(c => c.uuid === UART_RX_CHAR)
-          || chars.find(c => c.properties.write || c.properties.writeWithoutResponse);
+        // เลือกตัวที่เขียนได้ (หลีกเลี่ยงตัวที่เป็น notify อย่างเดียว)
+        writeChar = chars.find(c => c.uuid.toLowerCase() === UART_RX_CHAR && (c.properties.write || c.properties.writeWithoutResponse))
+          || chars.find(c => c.uuid.toLowerCase() === UART_TX_CHAR && (c.properties.write || c.properties.writeWithoutResponse))
+          || chars.find(c => c.properties.writeWithoutResponse || c.properties.write);
 
         if (!writeChar) {
-          throw new Error("ไม่พบ Characteristic สำหรับส่งข้อมูล");
+          throw new Error("ไม่พบช่องส่งข้อมูล UART บน micro:bit");
         }
 
         updateUIState(true, bleDevice.name);
-        statusEl.innerText = "พร้อมบังคับ! ปรับความเร็วได้ด้วยปุ่ม + และ -";
+        statusEl.innerText = "พร้อมบังคับ (" + writeChar.uuid.slice(4, 8) + ")";
       } catch (err) {
         statusEl.innerText = "เชื่อมต่อไม่สำเร็จ: " + err.message;
       }
@@ -269,10 +276,8 @@
       if (activeKeys.size === 0) return "S";
       if (activeKeys.has("FL")) return "FL";
       if (activeKeys.has("FR")) return "FR";
-
       if (activeKeys.has("F") && activeKeys.has("L")) return "FL";
       if (activeKeys.has("F") && activeKeys.has("R")) return "FR";
-
       if (activeKeys.has("F")) return "F";
       if (activeKeys.has("B")) return "B";
       if (activeKeys.has("L")) return "L";
@@ -307,14 +312,27 @@
       isSending = true;
       const data = new TextEncoder().encode(cmd + "\n");
       try {
+        // บน Android ลองเขียนแบบ WithoutResponse ก่อน ถ้าไม่ได้ให้ใช้ writeValueWithResponse / writeValue
         if (writeChar.properties.writeWithoutResponse) {
           await writeChar.writeValueWithoutResponse(data);
-        } else if (writeChar.properties.write) {
+        } else if (writeChar.writeValueWithResponse) {
+          await writeChar.writeValueWithResponse(data);
+        } else {
           await writeChar.writeValue(data);
         }
-        statusEl.innerText = "คำสั่งปัจจุบัน: " + cmd;
+        statusEl.innerText = "ส่งคำสั่ง: " + cmd;
       } catch (err) {
-        statusEl.innerText = "ส่งคำสั่งไม่สำเร็จ: " + err.message;
+        // Fallback กรณี Android บล็อกโหมดแรก ให้ลองสลับอีกวิธีอัตโนมัติ
+        try {
+          if (writeChar.writeValueWithResponse) {
+            await writeChar.writeValueWithResponse(data);
+          } else {
+            await writeChar.writeValue(data);
+          }
+          statusEl.innerText = "ส่งคำสั่ง (สำรอง): " + cmd;
+        } catch (err2) {
+          statusEl.innerText = "ส่งไม่สำเร็จ: " + err2.message;
+        }
       } finally {
         isSending = false;
         if (pendingCmd) {
@@ -325,32 +343,42 @@
       }
     }
 
+    // รองรับการสัมผัสบน Android ทั้ง Touch และ Pointer โดยไม่ใช้ setPointerCapture ที่ชอบค้างบน Chrome Android
     document.querySelectorAll("button.ctrl[data-key]").forEach(btn => {
       const key = btn.getAttribute("data-key");
 
-      btn.addEventListener("pointerdown", (e) => {
-        e.preventDefault();
-        activeKeys.add(key);
-        btn.classList.add("pressed");
-        try { btn.setPointerCapture(e.pointerId); } catch (_) {}
-        updateMovement();
-      });
-
-      const release = (e) => {
-        if (!activeKeys.has(key)) return;
-        e.preventDefault();
-        activeKeys.delete(key);
-        btn.classList.remove("pressed");
-        try {
-          if (btn.hasPointerCapture && btn.hasPointerCapture(e.pointerId)) {
-            btn.releasePointerCapture(e.pointerId);
-          }
-        } catch (_) {}
-        updateMovement();
+      const press = (e) => {
+        if (e.cancelable) e.preventDefault();
+        if (!activeKeys.has(key)) {
+          activeKeys.add(key);
+          btn.classList.add("pressed");
+          updateMovement();
+        }
       };
 
-      btn.addEventListener("pointerup", release);
-      btn.addEventListener("pointercancel", release);
+      const release = (e) => {
+        if (e && e.cancelable) e.preventDefault();
+        if (activeKeys.has(key)) {
+          activeKeys.delete(key);
+          btn.classList.remove("pressed");
+          updateMovement();
+        }
+      };
+
+      btn.addEventListener("touchstart", press, { passive: false });
+      btn.addEventListener("touchend", release, { passive: false });
+      btn.addEventListener("touchcancel", release, { passive: false });
+
+      btn.addEventListener("mousedown", press);
+      btn.addEventListener("mouseup", release);
+      btn.addEventListener("mouseleave", release);
+    });
+
+    // ป้องกันค้างหากยกนิ้วนอกจอ
+    window.addEventListener("touchend", () => {
+      if (activeKeys.size > 0) {
+        forceStop();
+      }
     });
   </script>
 </body>
