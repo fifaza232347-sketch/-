@@ -11,112 +11,243 @@
       color: #f9fafb;
       text-align: center;
       margin: 0;
-      padding: 20px;
+      padding: 16px;
       touch-action: none;
       user-select: none;
       -webkit-user-select: none;
     }
-    button.ctrl {
-      width: 96px;
-      height: 80px;
-      margin: 6px;
-      font-size: 17px;
+    #device-badge {
+      display: inline-block;
+      margin: 6px auto 10px auto;
+      padding: 10px 20px;
+      font-size: 20px;
+      font-weight: bold;
+      border-radius: 14px;
+      background: #374151;
+      color: #d1d5db;
+      border: 2px solid #4b5563;
+    }
+    #device-badge.connected {
+      background: #064e3b;
+      color: #6ee7b7;
+      border-color: #10b981;
+      box-shadow: 0 0 15px rgba(16, 185, 129, 0.35);
+    }
+    .btn-group {
+      margin-bottom: 16px;
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+    }
+    button.connect {
+      padding: 10px 18px;
+      font-size: 15px;
       font-weight: bold;
       border: none;
-      border-radius: 12px;
+      border-radius: 10px;
+      background: #16a34a;
+      color: #fff;
+      cursor: pointer;
+    }
+    button.disconnect {
+      padding: 10px 14px;
+      font-size: 15px;
+      font-weight: bold;
+      border: none;
+      border-radius: 10px;
+      background: #4b5563;
+      color: #fff;
+      cursor: pointer;
+      display: none;
+    }
+    .pad {
+      display: grid;
+      grid-template-columns: repeat(3, 92px);
+      gap: 10px;
+      justify-content: center;
+      margin-top: 10px;
+    }
+    button.ctrl {
+      width: 92px;
+      height: 78px;
+      font-size: 16px;
+      font-weight: bold;
+      border: none;
+      border-radius: 14px;
       background: #2563eb;
       color: #fff;
       cursor: pointer;
       touch-action: none;
     }
-    button.ctrl:active {
+    button.ctrl.diag {
       background: #1d4ed8;
-      transform: scale(0.97);
+      font-size: 15px;
+    }
+    button.ctrl.pressed {
+      background: #3b82f6;
+      transform: scale(0.95);
+      box-shadow: 0 0 12px rgba(59, 130, 246, 0.7);
     }
     button.stop {
-      background: #dc2626;
-    }
-    button.connect {
-      padding: 12px 20px;
+      width: 92px;
+      height: 78px;
       font-size: 16px;
+      font-weight: bold;
       border: none;
-      border-radius: 10px;
-      background: #16a34a;
+      border-radius: 14px;
+      background: #dc2626;
       color: #fff;
-      margin-bottom: 16px;
       cursor: pointer;
     }
-    .row {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-    }
     #status {
-      margin-bottom: 12px;
+      margin-bottom: 10px;
+      font-size: 14px;
       color: #93c5fd;
-      word-break: break-all;
     }
   </style>
 </head>
 <body>
-  <h2>BitCar Mobile Controller</h2>
-  <div id="status">สถานะ: ยังไม่เชื่อมต่อ</div>
-  <button class="connect" onclick="connectBLE()">เชื่อมต่อ micro:bit (BLE)</button>
+  <h2>BitCar Controller</h2>
 
-  <div class="row">
-    <button class="ctrl" data-cmd="F">เดินหน้า<br>(F)</button>
+  <div>
+    <div id="device-badge">ยังไม่ได้เชื่อมต่อบอร์ด</div>
   </div>
-  <div class="row">
-    <button class="ctrl" data-cmd="L">ซ้าย<br>(L)</button>
-    <button class="ctrl stop" onclick="sendCmd('S')">หยุด<br>(S)</button>
-    <button class="ctrl" data-cmd="R">ขวา<br>(R)</button>
+
+  <div id="status">กดปุ่มสีเขียวด้านล่างเพื่อเลือกคันที่ต้องการบังคับ</div>
+
+  <div class="btn-group">
+    <button id="btn-connect" class="connect" onclick="connectBLE()">เชื่อมต่อ micro:bit (BLE)</button>
+    <button id="btn-disconnect" class="disconnect" onclick="disconnectBLE()">ตัดการเชื่อมต่อ</button>
   </div>
-  <div class="row">
-    <button class="ctrl" data-cmd="B">ถอยหลัง<br>(B)</button>
+
+  <!-- แผงควบคุม 9 ช่อง -->
+  <div class="pad">
+    <button class="ctrl diag" data-key="FL">↖<br>หน้า-ซ้าย</button>
+    <button class="ctrl" data-key="F">▲<br>เดินหน้า</button>
+    <button class="ctrl diag" data-key="FR">↗<br>หน้า-ขวา</button>
+
+    <button class="ctrl" data-key="L">◀<br>หมุนซ้าย</button>
+    <button class="stop" onclick="forceStop()">■<br>หยุด</button>
+    <button class="ctrl" data-key="R">▶<br>หมุนขวา</button>
+
+    <div></div>
+    <button class="ctrl" data-key="B">▼<br>ถอยหลัง</button>
+    <div></div>
   </div>
 
   <script>
     const UART_SERVICE = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
     const UART_RX_CHAR = "6e400002-b5a3-f393-e0a9-e50e24dcca9e";
+    let bleDevice = null;
     let writeChar = null;
-    let activeCmd = null;
     let isSending = false;
     let pendingCmd = null;
+    let lastSentCmd = "";
+
+    // เก็บสถานะปุ่มที่กำลังถูกนิ้วกดค้างอยู่ (รองรับหลายนิ้วพร้อมกัน)
+    const activeKeys = new Set();
+
+    const badgeEl = document.getElementById("device-badge");
+    const statusEl = document.getElementById("status");
+    const btnConnect = document.getElementById("btn-connect");
+    const btnDisconnect = document.getElementById("btn-disconnect");
+
+    function updateUIState(connected, deviceName = "") {
+      if (connected) {
+        badgeEl.innerText = "🟢 " + (deviceName || "BBC micro:bit");
+        badgeEl.classList.add("connected");
+        btnConnect.innerText = "เปลี่ยนบอร์ด";
+        btnDisconnect.style.display = "inline-block";
+      } else {
+        badgeEl.innerText = "ยังไม่ได้เชื่อมต่อบอร์ด";
+        badgeEl.classList.remove("connected");
+        btnConnect.innerText = "เชื่อมต่อ micro:bit (BLE)";
+        btnDisconnect.style.display = "none";
+      }
+    }
 
     async function connectBLE() {
       try {
-        document.getElementById("status").innerText = "กำลังค้นหา BBC micro:bit...";
+        statusEl.innerText = "กำลังค้นหา BBC micro:bit...";
         const device = await navigator.bluetooth.requestDevice({
           filters: [{ namePrefix: "BBC micro:bit" }],
           optionalServices: [UART_SERVICE]
         });
-        device.addEventListener("gattserverdisconnected", () => {
+
+        if (bleDevice && bleDevice.gatt.connected) {
+          bleDevice.gatt.disconnect();
+        }
+
+        bleDevice = device;
+        bleDevice.addEventListener("gattserverdisconnected", () => {
           writeChar = null;
-          activeCmd = null;
+          activeKeys.clear();
           isSending = false;
           pendingCmd = null;
-          document.getElementById("status").innerText = "สถานะ: ตัดการเชื่อมต่อแล้ว";
+          lastSentCmd = "";
+          updateUIState(false);
+          statusEl.innerText = "ตัดการเชื่อมต่อแล้ว";
         });
-        const server = await device.gatt.connect();
+
+        const server = await bleDevice.gatt.connect();
         const service = await server.getPrimaryService(UART_SERVICE);
         const chars = await service.getCharacteristics();
 
         writeChar = chars.find(c => c.uuid === UART_RX_CHAR)
-          || chars.find(c => c.properties.writeWithoutResponse || c.properties.write);
+          || chars.find(c => c.properties.write || c.properties.writeWithoutResponse);
 
         if (!writeChar) {
           throw new Error("ไม่พบ Characteristic สำหรับส่งข้อมูล");
         }
-        document.getElementById("status").innerText =
-          "เชื่อมต่อแล้ว: " + (device.name || "micro:bit") + " [" + writeChar.uuid.slice(0, 8) + "]";
+
+        updateUIState(true, bleDevice.name);
+        statusEl.innerText = "พร้อมบังคับ! กดปุ่มเฉียง หรือกดเดินหน้า+เลี้ยวพร้อมกันได้เลย";
       } catch (err) {
-        document.getElementById("status").innerText = "เชื่อมต่อไม่สำเร็จ: " + err.message;
+        statusEl.innerText = "เชื่อมต่อไม่สำเร็จ: " + err.message;
       }
+    }
+
+    function disconnectBLE() {
+      if (bleDevice && bleDevice.gatt.connected) {
+        bleDevice.gatt.disconnect();
+      }
+    }
+
+    // คำนวณคำสั่งจากปุ่มทั้งหมดที่นิ้วกำลังกดค้างอยู่
+    function evaluateCommand() {
+      if (activeKeys.size === 0) return "S";
+      if (activeKeys.has("FL")) return "FL";
+      if (activeKeys.has("FR")) return "FR";
+
+      // กรณีกด 2 นิ้วพร้อมกัน: เดินหน้า + ซ้าย/ขวา
+      if (activeKeys.has("F") && activeKeys.has("L")) return "FL";
+      if (activeKeys.has("F") && activeKeys.has("R")) return "FR";
+
+      if (activeKeys.has("F")) return "F";
+      if (activeKeys.has("B")) return "B";
+      if (activeKeys.has("L")) return "L";
+      if (activeKeys.has("R")) return "R";
+      return "S";
+    }
+
+    function updateMovement() {
+      const cmd = evaluateCommand();
+      if (cmd !== lastSentCmd) {
+        lastSentCmd = cmd;
+        sendCmd(cmd);
+      }
+    }
+
+    function forceStop() {
+      activeKeys.clear();
+      document.querySelectorAll("button.ctrl").forEach(b => b.classList.remove("pressed"));
+      lastSentCmd = "S";
+      sendCmd("S");
     }
 
     async function sendCmd(cmd) {
       if (!writeChar) {
-        document.getElementById("status").innerText = "กรุณากดเชื่อมต่อ micro:bit ก่อน";
+        statusEl.innerText = "กรุณากดเชื่อมต่อ micro:bit ก่อน";
         return;
       }
       if (cmd !== "S" && isSending) {
@@ -131,9 +262,9 @@
         } else if (writeChar.properties.write) {
           await writeChar.writeValue(data);
         }
-        document.getElementById("status").innerText = "ส่งคำสั่งแล้ว: " + cmd;
+        statusEl.innerText = "คำสั่งปัจจุบัน: " + cmd;
       } catch (err) {
-        document.getElementById("status").innerText = "ส่งคำสั่งไม่สำเร็จ: " + err.message;
+        statusEl.innerText = "ส่งคำสั่งไม่สำเร็จ: " + err.message;
       } finally {
         isSending = false;
         if (pendingCmd) {
@@ -144,27 +275,28 @@
       }
     }
 
-    document.querySelectorAll("button.ctrl[data-cmd]").forEach(btn => {
-      const cmd = btn.getAttribute("data-cmd");
+    document.querySelectorAll("button.ctrl[data-key]").forEach(btn => {
+      const key = btn.getAttribute("data-key");
 
       btn.addEventListener("pointerdown", (e) => {
         e.preventDefault();
-        if (activeCmd === cmd) return;
-        activeCmd = cmd;
+        activeKeys.add(key);
+        btn.classList.add("pressed");
         try { btn.setPointerCapture(e.pointerId); } catch (_) {}
-        sendCmd(cmd);
+        updateMovement();
       });
 
       const release = (e) => {
-        if (activeCmd !== cmd) return;
+        if (!activeKeys.has(key)) return;
         e.preventDefault();
-        activeCmd = null;
+        activeKeys.delete(key);
+        btn.classList.remove("pressed");
         try {
           if (btn.hasPointerCapture && btn.hasPointerCapture(e.pointerId)) {
             btn.releasePointerCapture(e.pointerId);
           }
         } catch (_) {}
-        sendCmd("S");
+        updateMovement();
       };
 
       btn.addEventListener("pointerup", release);
