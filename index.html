@@ -34,7 +34,7 @@
       box-shadow: 0 0 15px rgba(16, 185, 129, 0.35);
     }
     .btn-group {
-      margin-bottom: 16px;
+      margin-bottom: 12px;
       display: flex;
       justify-content: center;
       gap: 10px;
@@ -60,12 +60,39 @@
       cursor: pointer;
       display: none;
     }
+    .speed-bar {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 12px;
+      margin: 10px auto 14px auto;
+    }
+    button.spd-btn {
+      padding: 10px 16px;
+      font-size: 16px;
+      font-weight: bold;
+      border: none;
+      border-radius: 10px;
+      background: #d97706;
+      color: #fff;
+      cursor: pointer;
+    }
+    button.spd-btn:active {
+      background: #b45309;
+      transform: scale(0.96);
+    }
+    #speed-label {
+      min-width: 110px;
+      font-size: 16px;
+      font-weight: bold;
+      color: #fcd34d;
+    }
     .pad {
       display: grid;
       grid-template-columns: repeat(3, 92px);
       gap: 10px;
       justify-content: center;
-      margin-top: 10px;
+      margin-top: 8px;
     }
     button.ctrl {
       width: 92px;
@@ -120,6 +147,13 @@
     <button id="btn-disconnect" class="disconnect" onclick="disconnectBLE()">ตัดการเชื่อมต่อ</button>
   </div>
 
+  <!-- แถบปุ่มเพิ่ม/ลดความเร็ว -->
+  <div class="speed-bar">
+    <button class="spd-btn" onclick="changeSpeed(-1)">- ลดความเร็ว</button>
+    <div id="speed-label">ความเร็ว: ~78%</div>
+    <button class="spd-btn" onclick="changeSpeed(1)">+ เพิ่มความเร็ว</button>
+  </div>
+
   <!-- แผงควบคุม 9 ช่อง -->
   <div class="pad">
     <button class="ctrl diag" data-key="FL">↖<br>หน้า-ซ้าย</button>
@@ -143,14 +177,32 @@
     let isSending = false;
     let pendingCmd = null;
     let lastSentCmd = "";
+    let currentSpeed = 200; // 80 - 255
 
-    // เก็บสถานะปุ่มที่กำลังถูกนิ้วกดค้างอยู่ (รองรับหลายนิ้วพร้อมกัน)
     const activeKeys = new Set();
 
     const badgeEl = document.getElementById("device-badge");
     const statusEl = document.getElementById("status");
     const btnConnect = document.getElementById("btn-connect");
     const btnDisconnect = document.getElementById("btn-disconnect");
+    const speedLabel = document.getElementById("speed-label");
+
+    function updateSpeedLabel() {
+      const pct = Math.round((currentSpeed / 255) * 100);
+      speedLabel.innerText = "ความเร็ว: " + pct + "%";
+    }
+
+    function changeSpeed(delta) {
+      if (delta > 0) {
+        currentSpeed = Math.min(255, currentSpeed + 35);
+        updateSpeedLabel();
+        sendCmd("V+");
+      } else {
+        currentSpeed = Math.max(80, currentSpeed - 35);
+        updateSpeedLabel();
+        sendCmd("V-");
+      }
+    }
 
     function updateUIState(connected, deviceName = "") {
       if (connected) {
@@ -201,7 +253,7 @@
         }
 
         updateUIState(true, bleDevice.name);
-        statusEl.innerText = "พร้อมบังคับ! กดปุ่มเฉียง หรือกดเดินหน้า+เลี้ยวพร้อมกันได้เลย";
+        statusEl.innerText = "พร้อมบังคับ! ปรับความเร็วได้ด้วยปุ่ม + และ -";
       } catch (err) {
         statusEl.innerText = "เชื่อมต่อไม่สำเร็จ: " + err.message;
       }
@@ -213,13 +265,11 @@
       }
     }
 
-    // คำนวณคำสั่งจากปุ่มทั้งหมดที่นิ้วกำลังกดค้างอยู่
     function evaluateCommand() {
       if (activeKeys.size === 0) return "S";
       if (activeKeys.has("FL")) return "FL";
       if (activeKeys.has("FR")) return "FR";
 
-      // กรณีกด 2 นิ้วพร้อมกัน: เดินหน้า + ซ้าย/ขวา
       if (activeKeys.has("F") && activeKeys.has("L")) return "FL";
       if (activeKeys.has("F") && activeKeys.has("R")) return "FR";
 
